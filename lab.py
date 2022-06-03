@@ -5,7 +5,7 @@ from operator import ge
 from turtle import back, position
 from typing import overload
 from unicodedata import name
-from attr import frozen
+# from attr import frozen
 
 from setuptools import find_packages
 
@@ -17,6 +17,7 @@ from prev_lab import pull_chain
 # but only these are guaranteed to have graphics.
 NOUNS = {"SNEK", "FLAG", "ROCK", "WALL", "COMPUTER", "BUG"}
 PROPERTIES = {"YOU", "WIN", "STOP", "PUSH", "DEFEAT", "PULL"}
+MODIFIERS = {'AND', 'IS'}
 WORDS = NOUNS | PROPERTIES | {"AND", "IS"}
 
 # Maps a keyboard direction to a (delta_row, delta_column) vector.
@@ -59,6 +60,13 @@ class Game():
         props = {k:v for k,v in self.props.items()}
 
         return Game(objs, props, self.get_board_dims())
+    
+    def get_objs_at_pos(self, pos):
+        output = []
+        for obj, positions in self.objs.items():
+            if pos in positions:
+                output.append( (obj, self.objs[obj][pos]) )
+        return output
     
 class Object:
     def __init__(self, name, properties = set(), positions = {}):
@@ -131,27 +139,36 @@ def new_game(lev_des):
     # will hold the rest of the words for now
     board_dims = [len(lev_des), len(lev_des[0])] # rows, cols
     board = {(y, x):{} for y in range(board_dims[0]) for x in range(board_dims[1])}
+    words = dict()
     # for every row...
     for y in range(len(lev_des)):
         # for every column...
         for x in range(len(lev_des[0])):
             # for every item in that position...
             for i in range(len(lev_des[y][x])):
+                item = lev_des[y][x][i]
                 # check if its a text object 
-                if lev_des[y][x][i] in WORDS: #NOUNS or PROPERTIES or {'IS', 'AND'}:
-                    if lev_des[y][x][i] in objs:
-                        objs[ lev_des[y][x][i] ][(y, x)] = objs[ lev_des[y][x][i] ].get( (y, x), 0 ) + 1
+                if item in WORDS: #NOUNS or PROPERTIES or {'IS', 'AND'}:
+                    if item in objs:
+                        objs[ item ][(y, x)] = objs[ item ].get( (y, x), 0 ) + 1
                         # ALL TEXT OBJECTS NEED TO HAVE THE PROPERTY PUSH
-                    # if lev_des[y][x][i] in props["PUSH"]:
-                    props['PUSH'].add(lev_des[y][x][i])
-
+                    # if item in props["PUSH"]:
+                    props['PUSH'].add(item)
+                    words[(y,x)] = item
 
                 # dealing with lowercase word (i.e. a graphical object)
-                elif lev_des[y][x][i].upper() in NOUNS:
-                    if lev_des[y][x][i] in objs:
-                        objs[ lev_des[y][x][i] ][(y, x)] = objs[ lev_des[y][x][i] ].get( (y, x), 0 ) + 1
+                elif item.upper() in NOUNS:
+                    if item in objs:
+                        objs[ item ][(y, x)] = objs[ item ].get( (y, x), 0 ) + 1
                 # regardless, add it to the board
-                board[(y, x)][lev_des[y][x][i]] = board[(y, x)].get(lev_des[y][x][i], 0) + 1
+                board[(y, x)][item] = board[(y, x)].get(item, 0) + 1
+
+    # check wordsssssssssssssss
+    for word, pos in words.items():
+        if word in NOUNS:
+            pos1 = get_new_pos(pos, 'down')
+            pos2 = get_new_pos(pos1, 'down')
+            
 
     return Game(objs, props, board, board_dims)
 
@@ -193,13 +210,13 @@ def can_move(game, curr_pos, direction):
             # if 'STOP' in game.objs[object]['props']:
             #     return False
             if object in game.props['STOP']:
+                if object in game.props['PUSH']:
+                    return True
                 return False
         for object, amount in game.board[new_pos].items():
 
             # if there's an object with the PUSH property in new position
             # check to see if it can moved. Otherwise, return False 
-            # elif 'PUSH' in game.objs[object]['props']:
-            #     c
             if object in game.props['PUSH']:
                 return can_move(game, new_pos, direction)
         return True
@@ -222,7 +239,7 @@ def step_game(game, direction):
     2. see if any objects are in either locations because they will be affected by our movement.
     3. 
     """
-
+    result = False
     changes = []
     # have list of positions that need to be checked. Start with new position
     queue = [[obj, curr_pos, amount] for obj in game.props['YOU'] for curr_pos, amount in game.objs[obj].items() ]
@@ -230,15 +247,15 @@ def step_game(game, direction):
     # for every object with you property...
     while len(queue) != 0:
         obj, curr_pos, camount = queue.pop(0)
-        if camount != 0 and can_move(game, curr_pos, direction):
+        # if obj in game.props['PUSH'] and obj in game.props['STOP']:
+
+        if can_move(game, curr_pos, direction):
             # if you can move, then get the new position and the back position
             new_pos = get_new_pos(curr_pos, direction)
             prev_pos = get_new_pos(curr_pos, opp_direction[direction])
 
-            changes.append([obj, curr_pos, new_pos, camount])
-
             # for every object in the new position...
-            for object, namount in game.board[new_pos].items():
+            for object, namount in game.get_objs_at_pos(new_pos):
                 # if object that the player controls...
                 if obj in game.props['YOU'] or obj in game.props['PULL']:
                     # if push object, enqueue. Don't have to worry about not
@@ -246,127 +263,52 @@ def step_game(game, direction):
                     # for that
                     if object in game.props['PUSH'] and (object, new_pos) not in visited:
                         queue.append([object, new_pos, namount])
-                    else:
-                        changes.append([obj, curr_pos, curr_pos, camount])
-                
+                    
+                    elif (obj in game.props['YOU'] and object in game.props['YOU']):
+                        camount += namount
+                    elif (obj in game.props['PULL'] and object in game.props['PULL']) and \
+                        (object, new_pos) not in visited:
+                        camount += namount
                 elif obj in game.props['PUSH']:
                     if object in game.props['PUSH'] and (object, new_pos) not in visited:
                         queue.append([object, new_pos, namount])
-                    else:
-                        changes.append([obj, curr_pos, curr_pos, camount])
-                visited.add((object, new_pos))
-
 
             if game.in_bounds(prev_pos):
                 # for every object in the back position...
-                for bobject, bamount in game.board[prev_pos].items():
+                for bobject, bamount in game.get_objs_at_pos(prev_pos):
                     # any moving object can pull an object, so we just need to check if there's
                     # behind the currently moving object
                     if bobject in game.props['PULL'] and (bobject, prev_pos) not in visited:
                         queue.append([bobject, prev_pos, bamount])
-                    else:
-                        changes.append([obj, curr_pos, curr_pos, camount])
-                    # visited.add((bobject, prev_pos))
-        changes.append([obj, curr_pos, curr_pos, camount])
-                
-    # now update the game by making all changes
-    # old_amts = [] # [game.board[new_pos].get(obj, 0) for obj, curr_pos, new_pos, amount in changes]
-    # for obj, curr_pos, new_pos, amount in changes:
-    #     if can_move(game, new_pos, direction):
-    #         old_amts.append(0)
-    #     else:
-    #         old_amts.append(game.board[new_pos].get(obj, 0))
+            changes.append([obj, curr_pos, new_pos, camount])
+            visited.add( (obj, curr_pos) )
+
+    # delete all old positions
+    # print(changes)
+    for i in range(len(changes)):
+        # print(changes[i])
+        del game.objs[ changes[i][0] ][ changes[i][1] ]
+
+    for i in range(len(changes)):
+        game.objs[ changes[i][0] ][ changes[i][2] ] = changes[i][3]
     
-    # new_objs = {key:{'props':{}, 'pos': {}} for key in game.objs.keys()}
-    # for key, d in game.objs.items():
-    #     new_objs[key]['props'] = d['props'].copy()
-    #     new_objs[key]['pos'] = {k:v for k,v in d['pos'].items()}
-
-
-    # make new dictionaries for YOU, PUSH, and PULL objects
-    poss_new_pos_obj = game.props['YOU'] | game.props['PUSH'] | game.props['PULL']
-    new_dicts = {obj:{} for obj in poss_new_pos_obj}
-
-    for i in range(len(changes)): # range(len(changes)-1, -1, -1):
-        for obj, curr_pos, new_pos, amount in changes:
-            if can_move(game, new_pos, direction):
-                # old_amts.append(0)
-                # new_objs[obj][new_pos] = amount
-
-                # if obj in game.props['YOU']:
-                #     pass
-                # elif obj in game.props['PUSH']:
-                #     pass
-                # else:
-                #     pass
-                new_amt = amount
-            else:
-                # old_amts.append(game.board[new_pos].get(obj, 0))
-                # new_objs[obj][new_pos] = amount + new_objs[obj].get(new_pos, 0)
-                new_amt = amount + game.objs[obj].get(new_pos, 0)
-            # if obj in game.props['YOU']:
-            #     new_dicts[obj][new_pos] = new_amt
-            # elif obj in game.props['PUSH']:
-            #     new_dicts[obj][new_pos] = new_amt
-            # else:
-            #     new_dicts[obj][new_pos] = new_amt
-            # # update board
-            # game.board[curr_pos][obj] = 0
-            # game.board[new_pos][obj] = new_objs[obj][new_pos]
-            new_dicts[obj][new_pos] = new_amt
-    # change current objs dictionary to the new one
-    for obj, Dict in new_dicts.items():
-        game.objs[obj] = Dict
-    print(game.objs)
-    # board_dims = game.get_board_dims()
-    # output = [ [ [] for x in range(game.get_board_dims()[1])] for y in range(game.get_board_dims()[0]) ]
-    # board = {(y, x):{} for y in range(board_dims[0]) for x in range(board_dims[1])}
-
-    # for obj, l in game.get_objs().items():
-    #     for pos, amount in l['pos'].items():
-    #         for i in range(amount):
-    #             output[pos[0]][pos[1]].append(obj) 
-    #             board[pos][obj] = board[pos].get(obj, 0) + 1
-
-
-
-
-
-        # # DON'T FUCKING USE A CHANGING BOARD TO UPDATE SHIT U DUMB SHITTTTTTTTT
-        # obj, curr_pos, new_pos, amount = changes[i]
-        # # game.objs[obj]['pos'][curr_pos] -= amount
-        # # if game.objs[obj]['pos'][curr_pos] == 0:
-        # game.objs[obj]['pos'][curr_pos] -= amount
-        # game.objs[obj]['pos'][new_pos] = old_amts[i] + amount
-
-        # # if curr_pos in game.objs[obj]['pos'] and game.objs[obj]['pos'][curr_pos] == amount:
-        # #     del game.objs[obj]['pos'][curr_pos]
-        # # else :
-        # #     game.objs[obj]['pos'][curr_pos] = game.objs[obj]['pos'].get(curr_pos, 0) + amount
-        # # game.objs[obj]['pos'][new_pos] = old_amts[i] + amount
-
-        # # game.objs[obj]['pos'][curr_pos] -= amount
-        # # if game.objs[obj]['pos'][curr_pos] == 0:
-        # #     del game.objs[obj]['pos'][curr_pos]
-        # # game.objs[obj]['pos'][new_pos] = old_amts[i] + amount - game.objs[obj]['pos'].get(new_pos, 0)
-
-
-        # # game.board[curr_pos][obj] -= amount
-        # game.board[curr_pos][obj] = 0
-        # game.board[new_pos][obj] = old_amts[i] + amount
-        # # update board
-
-
-        # # if obj in game.board[curr_pos] and game.board[curr_pos][obj] == amount:
-        # #     del game.board[curr_pos][obj]
-        # # else:
-        # #     game.board[curr_pos][obj] -= amount
-        # # game.board[new_pos][obj] = old_amts[i] + amount
-
-        # # game.board[curr_pos][obj] -= amount
-        # # if game.board[curr_pos][obj] == 0:
-        # #     del game.board[curr_pos][obj]
-        # # game.board[new_pos][obj] = old_amts[i] + amount - game.board[new_pos].get(obj, 0)
+    # print(visited)
+    changes = []
+    for obj in game.props['YOU']:
+        for position in game.objs[obj].keys():
+            for object in game.props['DEFEAT']:
+                if position in game.objs[object]:
+                    changes.append( (obj, position) )
+    
+    for obj, pos in changes:
+        del game.objs[obj][pos]
+    
+    # check if won
+    for obj in game.props['YOU']:
+        for position in game.objs[obj].keys():
+            for object in game.props['WIN']:
+                if position in game.objs[object]:
+                    return True
 
 
     return False
@@ -400,4 +342,6 @@ def dump_game(game):
     #             output[pos[0]][pos[1]].append(obj)
     # print(output)
     game.board = board
+    print(output)
+    # print(output[4][6])
     return output
