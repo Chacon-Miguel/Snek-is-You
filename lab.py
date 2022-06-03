@@ -35,11 +35,12 @@ opp_direction = {
 }
 
 class Game():
-    def __init__(self, objs = {}, props = {}, board = {}, board_dims = [0, 0]):
+    def __init__(self, objs = {}, props = {}, words = {}, ids = {}, board_dims = [0, 0]):
         self.objs = objs
         self.props = props
         self.dims = board_dims
-        self.board = board
+        self.words = words
+        self.ids = ids
     
     def get_board_dims(self):
         return self.dims
@@ -67,23 +68,6 @@ class Game():
             if pos in positions:
                 output.append( (obj, self.objs[obj][pos]) )
         return output
-    
-class Object:
-    def __init__(self, name, properties = set(), positions = {}):
-        self.name = name
-        self.properties = properties
-        self.positions = positions
-
-    def has_property(self, property):
-        if property in self.properties:
-            return True
-        return False
-    
-    def name(self):
-        return self.name
-
-    
-
 
 def new_game(lev_des):
     """
@@ -128,17 +112,37 @@ def new_game(lev_des):
             }
     # objs = {word:}
     props = {
-        'YOU': {'snek'}, 
-        'STOP': {'wall'}, 
-        'PUSH': {'rock'},
-        'PULL': {'computer'},
-        'DEFEAT': {'bug'},
-        'WIN': {'flag'}
+        'YOU': set(), 
+        'STOP': set(), 
+        'PUSH': set(),
+        'PULL': set(),
+        'DEFEAT': set(),
+        'WIN': set()
         }
-    
+    id = 0
+    ids = { 'snek': {}, 
+             'wall': {},
+             'rock': {},
+             'computer': {},
+             'bug': {},
+             'flag': {},
+             'IS': {},
+             'YOU': {},
+             'PULL': {},
+             'PUSH': {},
+             'AND': {},
+             'WIN': {},
+             'STOP': {},
+             'DEFEAT': {},
+             'SNEK': {},
+             'WALL': {},
+             'ROCK': {},
+             'COMPUTER':{},
+             'BUG': {},
+             'FLAG': {}
+            }
     # will hold the rest of the words for now
     board_dims = [len(lev_des), len(lev_des[0])] # rows, cols
-    board = {(y, x):{} for y in range(board_dims[0]) for x in range(board_dims[1])}
     words = dict()
     # for every row...
     for y in range(len(lev_des)):
@@ -160,17 +164,31 @@ def new_game(lev_des):
                 elif item.upper() in NOUNS:
                     if item in objs:
                         objs[ item ][(y, x)] = objs[ item ].get( (y, x), 0 ) + 1
-                # regardless, add it to the board
-                board[(y, x)][item] = board[(y, x)].get(item, 0) + 1
-
+    # give ids to objects
+    for obj in game.objs.keys():
+        for pos, amt in game.objs[obj]:
+            
     # check wordsssssssssssssss
-    for word, pos in words.items():
+    for pos, word in words.items():
         if word in NOUNS:
+            # check if rule is made vertically
             pos1 = get_new_pos(pos, 'down')
             pos2 = get_new_pos(pos1, 'down')
-            
-
-    return Game(objs, props, board, board_dims)
+            if (pos1 in words and words[pos1] in MODIFIERS) and \
+                (pos2 in words and words[pos2] in PROPERTIES):
+                props[ words[pos2] ].add(word.lower())
+            # check if rule is made horizontally
+            pos1 = get_new_pos(pos, 'right')
+            pos2 = get_new_pos(pos1, 'right')
+            if (pos1 in words and words[pos1] in MODIFIERS) and \
+                (pos2 in words and words[pos2] in PROPERTIES):
+                props[ words[pos2] ].add(word.lower())
+              
+    print(props)
+    print()
+    print(objs)
+    print()
+    return Game(objs, props, words, board_dims)
 
 
 def get_new_pos(curr_pos, direction):
@@ -178,6 +196,8 @@ def get_new_pos(curr_pos, direction):
     x =  curr_pos[1] + direction_vector[direction][1]
     return (y, x)
 
+def check_new_rule(game, pos):
+    pass
 
 
 def get_objects_at_pos(game, pos):
@@ -195,26 +215,17 @@ def get_objects_at_pos(game, pos):
 def can_move(game, curr_pos, direction):
     new_pos = get_new_pos(curr_pos, direction)
     if game.in_bounds(new_pos):
-        # for object, amount in game.board[curr_pos].items():
-        #     # if any object has the stop property, you can't move
-        #     # so return False
-        #     # if 'STOP' in game.objs[object]['props']:
-        #     #     return False
-        #     if object in game.props['STOP']:
-        #         return False
-        
         # for every object that's in the new position...
-        for object, amount in game.board[new_pos].items():
+        for object, amount in game.get_objs_at_pos(new_pos):
             # if any object has the stop property, you can't move
             # so return False
-            # if 'STOP' in game.objs[object]['props']:
-            #     return False
             if object in game.props['STOP']:
+                # unless an object has both stop and push property.
+                # In which case, prioritize PUSH before STOP
                 if object in game.props['PUSH']:
                     return True
                 return False
-        for object, amount in game.board[new_pos].items():
-
+        for object, amount in game.get_objs_at_pos(new_pos):
             # if there's an object with the PUSH property in new position
             # check to see if it can moved. Otherwise, return False 
             if object in game.props['PUSH']:
@@ -240,7 +251,9 @@ def step_game(game, direction):
     3. 
     """
     result = False
-    changes = []
+    obj_changes = []
+    prop_changes = []
+
     # have list of positions that need to be checked. Start with new position
     queue = [[obj, curr_pos, amount] for obj in game.props['YOU'] for curr_pos, amount in game.objs[obj].items() ]
     visited = set()
@@ -263,7 +276,6 @@ def step_game(game, direction):
                     # for that
                     if object in game.props['PUSH'] and (object, new_pos) not in visited:
                         queue.append([object, new_pos, namount])
-                    
                     elif (obj in game.props['YOU'] and object in game.props['YOU']):
                         camount += namount
                     elif (obj in game.props['PULL'] and object in game.props['PULL']) and \
@@ -280,27 +292,51 @@ def step_game(game, direction):
                     # behind the currently moving object
                     if bobject in game.props['PULL'] and (bobject, prev_pos) not in visited:
                         queue.append([bobject, prev_pos, bamount])
-            changes.append([obj, curr_pos, new_pos, camount])
+            obj_changes.append([obj, curr_pos, new_pos, camount])
             visited.add( (obj, curr_pos) )
 
     # delete all old positions
-    # print(changes)
-    for i in range(len(changes)):
-        # print(changes[i])
-        del game.objs[ changes[i][0] ][ changes[i][1] ]
+    for i in range(len(obj_changes)):
+        del game.objs[ obj_changes[i][0] ][ obj_changes[i][1] ]
+        # update words if needed
+        if obj_changes[i][0] in WORDS:
+            del game.words[ obj_changes[i][1] ]
 
-    for i in range(len(changes)):
-        game.objs[ changes[i][0] ][ changes[i][2] ] = changes[i][3]
-    
-    # print(visited)
-    changes = []
+    for i in range(len(obj_changes)):
+        game.objs[ obj_changes[i][0] ][ obj_changes[i][2] ] = obj_changes[i][3]
+        # update words if needed
+        if obj_changes[i][0] in WORDS:
+            game.words[ obj_changes[i][2] ] = obj_changes[i][0]
+
+    # check for new rules
+    new_props = {key:set() for key in game.props.keys()}
+    for pos, word in game.words.items():
+        if word in NOUNS:
+            # check if rule is made vertically
+            pos1 = get_new_pos(pos, 'down')
+            pos2 = get_new_pos(pos1, 'down')
+            if (pos1 in game.words and game.words[pos1] in MODIFIERS) and \
+                (pos2 in game.words and game.words[pos2] in PROPERTIES):
+                new_props[ game.words[pos2] ].add(word.lower())
+            # check if rule is made horizontally
+            pos1 = get_new_pos(pos, 'right')
+            pos2 = get_new_pos(pos1, 'right')
+            if (pos1 in game.words and game.words[pos1] in MODIFIERS) and \
+                (pos2 in game.words and game.words[pos2] in PROPERTIES):
+                new_props[ game.words[pos2] ].add(word.lower())
+        new_props['PUSH'].add(word)
+    game.props = new_props
+
+
+    # delete any YOU objects, if needed
+    obj_changes = []
     for obj in game.props['YOU']:
         for position in game.objs[obj].keys():
             for object in game.props['DEFEAT']:
                 if position in game.objs[object]:
-                    changes.append( (obj, position) )
+                    obj_changes.append( (obj, position) )
     
-    for obj, pos in changes:
+    for obj, pos in obj_changes:
         del game.objs[obj][pos]
     
     # check if won
@@ -310,6 +346,11 @@ def step_game(game, direction):
                 if position in game.objs[object]:
                     return True
 
+    print(game.objs)
+    print()
+    print(game.props)
+    print()
+    print(game.words)
 
     return False
 
@@ -324,24 +365,13 @@ def dump_game(game):
     print out the current state of your game for testing and debugging on your
     own.
     """
-    # print(game.objs)
-    # print()
-    # print(game.props)
     board_dims = game.get_board_dims()
-    output = [ [ [] for x in range(game.get_board_dims()[1])] for y in range(game.get_board_dims()[0]) ]
-    board = {(y, x):{} for y in range(board_dims[0]) for x in range(board_dims[1])}
+    output = [ [ [] for x in range(board_dims[1])] for y in range(board_dims[0]) ]
 
     for obj, l in game.get_objs().items():
         for pos, amount in l.items():
             for i in range(amount):
                 output[pos[0]][pos[1]].append(obj) 
-                board[pos][obj] = board[pos].get(obj, 0) + 1
-    # for pos, obj_info in game.board.items():
-    #     for obj, amount in obj_info.items():
-    #         for i in range(amount):
-    #             output[pos[0]][pos[1]].append(obj)
-    # print(output)
-    game.board = board
+                
     print(output)
-    # print(output[4][6])
     return output
