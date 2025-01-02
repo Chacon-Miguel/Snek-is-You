@@ -8,6 +8,7 @@ import doctest
 # but only these are guaranteed to have graphics.
 NOUNS = {"SNEK", "FLAG", "ROCK", "WALL", "COMPUTER", "BUG"}
 PROPERTIES = {"YOU", "WIN", "STOP", "PUSH", "DEFEAT", "PULL"}
+MODIFIERS = {"AND", "IS"}
 WORDS = NOUNS | PROPERTIES | {"AND", "IS"}
 
 # Maps a keyboard direction to a (delta_row, delta_column) vector.
