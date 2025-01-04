@@ -139,7 +139,9 @@ def check_if_object_need_to_be_pulled(game, loc, direction):
     return False
 
 
-def pull_objects_in_back(game: Game, loc, direction, parse_rules_flag):
+def pull_objects_in_back(
+    game: Game, loc, direction, parse_rules_flag, pushed_object_locs
+):
     pulled_object_locs = set()
     print()
     print("before pulling objects")
@@ -165,6 +167,7 @@ def pull_objects_in_back(game: Game, loc, direction, parse_rules_flag):
                         loc,
                         pulled_object_locs,
                         parse_rules_flag,
+                        pushed_object_locs,
                     )
                     and back_loc in locs
                 ):
@@ -187,7 +190,9 @@ def pull_objects_in_back(game: Game, loc, direction, parse_rules_flag):
     return pulled_object_locs
 
 
-def can_move(game: Game, direction, loc, pulled_object_locs, parse_rules_flag):
+def can_move(
+    game: Game, direction, loc, pulled_object_locs, parse_rules_flag, pushed_object_locs
+):
     if not loc_in_bounds(game, loc):
         return False
     # if object has push and stop property, push takes priority
@@ -209,14 +214,15 @@ def can_move(game: Game, direction, loc, pulled_object_locs, parse_rules_flag):
             new_loc,
             pulled_object_locs,
             parse_rules_flag,
+            pushed_object_locs,
         ):
-
-            need_to_reparse_rules = move_push_object(game, loc, new_loc)
-
-            parse_rules_flag[0] = need_to_reparse_rules
-            pulled_object_locs |= pull_objects_in_back(
-                game, loc, direction, parse_rules_flag
-            )
+            if loc not in pushed_object_locs:
+                need_to_reparse_rules = move_push_object(game, loc, new_loc)
+                pushed_object_locs.add(loc)
+                parse_rules_flag[0] = need_to_reparse_rules
+                pulled_object_locs |= pull_objects_in_back(
+                    game, loc, direction, parse_rules_flag, pushed_object_locs
+                )
             return True
         return False
     if stop_object_at_loc(game, loc):
@@ -282,6 +288,7 @@ def step_game(game: Game, direction):
     delta_row, delta_col = direction_vector[direction]
     # pointers to flags so that operations are not repeated or we know to reparse text objects
     pulled_object_locs = set()
+    pushed_object_locs = set()
     parse_rules_flag = [False]
     print(f"YOU objects: {game.property_to_object_map[YOU]}")
     for noun in game.property_to_object_map[YOU]:
@@ -306,6 +313,7 @@ def step_game(game: Game, direction):
                 new_loc,
                 pulled_object_locs,
                 parse_rules_flag,
+                pushed_object_locs,
             ):
                 moving_objects.append((new_loc, amt))
 
@@ -315,7 +323,9 @@ def step_game(game: Game, direction):
                 opp_delta_row, opp_delta_col = -delta_row, -delta_col
                 back_loc = (row + opp_delta_row, col + opp_delta_col)
                 if back_loc not in pulled_object_locs:
-                    pull_objects_in_back(game, loc, direction, parse_rules_flag)
+                    pull_objects_in_back(
+                        game, loc, direction, parse_rules_flag, pushed_object_locs
+                    )
 
             else:
                 new_locs[loc] = amt
