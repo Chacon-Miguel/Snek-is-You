@@ -143,10 +143,10 @@ def pull_objects_in_back(
     game: Game, loc, direction, parse_rules_flag, pushed_object_locs
 ):
     pulled_object_locs = set()
-    print()
-    print("before pulling objects")
-    print(game)
-    print()
+    # print()
+    # print("before pulling objects")
+    # print(game)
+    # print()
 
     def helper(game, loc, direction):
         if check_if_object_need_to_be_pulled(game, loc, direction):
@@ -176,17 +176,17 @@ def pull_objects_in_back(
                     # break
                     # remove old_loc
                     pulled_object_locs.add(back_loc)
-                    print(
-                        f"PULLING {object} from {back_loc} to {loc}, amt: {locs[back_loc]}"
-                    )
+                    # print(
+                    #     f"PULLING {object} from {back_loc} to {loc}, amt: {locs[back_loc]}"
+                    # )
                     locations[loc] = locations[back_loc] + locations.get(loc, 0)
                     # add in new_loc
                     locations.pop(back_loc)
             helper(game, back_loc, direction)
 
     helper(game, loc, direction)
-    print("after pulling objects")
-    print(game)
+    # print("after pulling objects")
+    # print(game)
     return pulled_object_locs
 
 
@@ -218,7 +218,8 @@ def can_move(
         ):
             if loc not in pushed_object_locs:
                 need_to_reparse_rules = move_push_object(game, loc, new_loc)
-                pushed_object_locs.add(loc)
+                print(f"pushing object from {loc} to {new_loc}")
+                pushed_object_locs.add(new_loc)
                 parse_rules_flag[0] = need_to_reparse_rules
                 pulled_object_locs |= pull_objects_in_back(
                     game, loc, direction, parse_rules_flag, pushed_object_locs
@@ -290,14 +291,14 @@ def step_game(game: Game, direction):
     pulled_object_locs = set()
     pushed_object_locs = set()
     parse_rules_flag = [False]
-    print(f"YOU objects: {game.property_to_object_map[YOU]}")
+    # print(f"YOU objects: {game.property_to_object_map[YOU]}")
     for noun in game.property_to_object_map[YOU]:
         object = noun if noun in WORDS else noun.lower()
         if object not in game.noun_to_locs_map:
             continue
 
         locs = game.noun_to_locs_map[object]
-        print(f"{object} locations: {locs}")
+        # print(f"{object} locations: {locs}")
         # new_locs = {key: val for (key, val) in locs.items()}
         new_locs = {}
 
@@ -342,7 +343,7 @@ def step_game(game: Game, direction):
             # back_loc = (row + opp_delta_row, col + opp_delta_col)
             # if back_loc not in pulled_object_locs:
             #     pull_objects_in_back(game, loc, direction, parse_rules_flag)
-            print(f"{object} new locations update: {str(new_locs)}")
+            # print(f"{object} new locations update: {str(new_locs)}")
 
         # for loc, amt in locs.items():
         #     row, col = loc
@@ -364,10 +365,10 @@ def step_game(game: Game, direction):
         #         new_locs[loc] = new_locs.get(loc, 0) + amt
 
         game.noun_to_locs_map[object] = new_locs
-        print(f"{object} new locations: {new_locs}")
-    print("after pulling/pushing")
-    print(game)
-    print()
+        # print(f"{object} new locations: {new_locs}")
+    # print("after pulling/pushing")
+    # print(game)
+    # print()
     # reparse rules if needed
     if parse_rules_flag[0]:
         game.parse_rules()
