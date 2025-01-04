@@ -31,7 +31,7 @@ def compare_boards(your_board, expected_board):
         return f"board had wrong size"
     for rn, (your_row, expected_row) in enumerate(zip(your_board, expected_board)):
         if len(your_row) != len(expected_row):
-            return  f"row {rn} had wrong size"
+            return f"row {rn} had wrong size"
         for cn, (your_cell, expected_cell) in enumerate(zip(your_row, expected_row)):
             if sorted(your_cell) != sorted(expected_cell):
                 return f"objects at location ({rn},{cn}) don't match"
@@ -42,7 +42,9 @@ def compare_simulation(filename):
         level = json.load(f)
     with open(os.path.join(TEST_DIRECTORY, "test_inputs", f"{filename}.txt")) as f:
         inputs = f.read().strip().splitlines(False)
-    with open(os.path.join(TEST_DIRECTORY, "test_outputs", f"{filename}.json"), "rb") as f:
+    with open(
+        os.path.join(TEST_DIRECTORY, "test_outputs", f"{filename}.json"), "rb"
+    ) as f:
         outputs = json.load(f)
     assert len(inputs) == len(outputs) != 0
 
@@ -55,8 +57,15 @@ def compare_simulation(filename):
         victory = lab.step_game(game, direction)
         err_msg = compare_boards(lab.dump_game(game), exp_dump)
         if err_msg is not None:
-            assert False, f"Unexpected results in step {ix}, moving {direction} starting from the following board ({err_msg}):\n\n{original_dump}\n\nYou can copy/paste this representation into the GUI to test."
-        assert victory == exp_win, f"Incorrect victory check in step {ix}, moving {direction} starting from the following board (expected {exp_win} after moving):\n\n{original_dump}\n\nYou can copy/paste this representation into the GUI to test."
+            print(game)
+            print("EXPECTED OUTPUT")
+            print(lab.new_game(exp_dump))
+            assert (
+                False
+            ), f"Unexpected results in step {ix}, moving {direction} starting from the following board ({err_msg}):\n\n{original_dump}\n\nYou can copy/paste this representation into the GUI to test."
+        assert (
+            victory == exp_win
+        ), f"Incorrect victory check in step {ix}, moving {direction} starting from the following board (expected {exp_win} after moving):\n\n{original_dump}\n\nYou can copy/paste this representation into the GUI to test."
 
 
 test_cases = [
