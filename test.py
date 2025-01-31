@@ -57,9 +57,9 @@ def compare_simulation(filename):
         victory = lab.step_game(game, direction)
         err_msg = compare_boards(lab.dump_game(game), exp_dump)
         if err_msg is not None:
-            print(game)
-            print("EXPECTED OUTPUT")
-            print(lab.new_game(exp_dump))
+            # print(game)
+            # print("EXPECTED OUTPUT")
+            # print(lab.new_game(exp_dump))
             assert (
                 False
             ), f"Unexpected results in step {ix}, moving {direction} starting from the following board ({err_msg}):\n\n{original_dump}\n\nYou can copy/paste this representation into the GUI to test."
